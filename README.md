@@ -13,9 +13,9 @@ Recently I have started learning Unity/C# for video game programming. Even the s
 - Enemy AI
 - etc...
 
-For each of these problems there are usually multiple solutions, reason why learning how to create a game can become overwhelming and a neverending enterprise. 
+For each of these problems there can be multiple solutions, reason why learning how to create a game can become overwhelming and a neverending enterprise. 
 Although each game is unique, there are some general directions on how to tackle the topics above that can be found in either tutorials or in the Unity manual itself. 
 
-In this repository I will be gathering both the solutions I've come across on tutorials and some implementations of my own, just for the sake of documenting my learning process, and also to haave them all available in one place for an easier reuse.
+In this repository I will be gathering both the solutions I've come across on tutorials and some implementations of my own, just for the sake of documenting my learning process, and also to have them all available in one place for an easier reuse.
 
 DISCLAIMER: I cannot promise all the scripts will be directly funcional. There may be errors and bad coding practices. I will reference the original sources.
