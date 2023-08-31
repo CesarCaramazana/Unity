@@ -9,7 +9,7 @@ The custom dithering shader was implemented by [Cheddar Game Dev](https://www.yo
 In a third-person controller set up, it is a common situation that obstacles get in between the player and the camera, which hinders visibility and overall hurts the gameplay experience. 
 One solution to this problem is adding a collider to the camera and configure a behavior in the Cinemachine brain so that it gets adjusted on collisions with objects. An example: Dark Souls' camera (which sometimes is the real enemy).
 
-[The Occlusion problem](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Dithering%20Transparency/Example/Dithering_OcclusionProblem.png)
+[!The Occlusion problem](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Dithering%20Transparency/Example/Dithering_OcclusionProblem.png)
 
 Other solution, that can be found in games such as Super Mario Odyssey or Devil May Cry, is detecting the objects between player and camera and apply transparency to their materials, without the need of modifying the camera's position.
 In this case scenario, two options are available:
@@ -24,4 +24,4 @@ By setting the Opacity value of the objects blocking our view, we can control ho
 As seen in the image below, this completely solves the problem. However, there are two drawbacks that I can think of, namely, 1) that we need to attach the custom shader and the FadingObject script to all the objects that we want to fade, and 2) that in some cases we wouldn't want the camera to be able to see through walls (for example, if there is a door between rooms).
 
 
-[Dithering transparency](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Dithering%20Transparency/Example/Dithering_Transparency.png)
+[!Dithering transparency](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Dithering%20Transparency/Example/Dithering_Transparency.png)
