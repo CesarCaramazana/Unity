@@ -6,7 +6,7 @@ The ObjectPooling.cs script is not generic because I used an enum ProjectileType
 The ObjectPooling.cs implementation is more powerful in the sense that we can pool more than one object.
 
 
-##What is object pooling
+## What is object pooling
 
 Instead of creating and destroying objects at runtime with the Instantiate() and Destroy() methods from MonoBehavior, we can instead have them inactive in the hierarchy from the beginning and enable/disable them at need. This is more efficient when objects have to be created and destroyed very quickly during gameplay, such as in a bullet hell game, since the garbage collector (that cleans up the memory of destroyed objects) can cause some framedrops.
 
