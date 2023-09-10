@@ -46,3 +46,7 @@ if(Physics.Linecast(mainCamera.position, lockTarget.position + Vector3.up * lock
      reticle.transform.LookAt(mainCamera.position);
 }      
 ```
+
+
+### Player movement
+We have to communicate the Player Controller that we are locked on. With this boolean, we can modify the movement of the player, for example, by restricting its rotation and playing a different set of animations. 
