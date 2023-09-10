@@ -19,8 +19,10 @@ The main problematiques that have to be addressed in a lock-on system are:
 
 ### Target detection and selection
 First, we cast a sphere with a certain radius from the player, that returns all colliders with the enemy layer. Then, compute either 1) distance to the player or 2) angle with respect to the camera forward, aswell as a bool to determine if the potential target is on sight, that is, if the linecast between player/camera and target does not hit any obstacle.
+
 Select the target with minimum distance/angle that is on sight. For this target, we calculate the half-height of the capsule collider so that we can apply an offset in the Y-axis (so that the target point is in the middle of the object).
 
+In ```Update()```, we check if the target remains at a certain distance and on sight, and unlock if it doesn't. We can apply a certain tolerance so that it does not unlock the target instantly, but after N seconds.
 
 ### Camera behavior
 We set up a Cinemachine Virtual camera that **follows** the player and **looks at** the target. When the target has been selected, we increase the ```Priority``` of the Lock-on Camera with respect to our Free Look camera (unlocked). 
@@ -34,3 +36,13 @@ lockCamera.GetCinemachineComponent<CinemachineComposer>().m_TrackedObjectOffset.
 
 ### UI reticle
 When locked on, a raycast is thrown from the player to the target. We detect the hit point on the enemy, offset the distance a little bit towards the player to avoid Z-fighting, and place a sprite renderer that always looks at the camera.
+
+```
+Vector3 direction = ((lockTarget.position + Vector3.up * lockYOffset) - mainCamera.position).normalized;
+
+if(Physics.Linecast(mainCamera.position, lockTarget.position + Vector3.up * lockYOffset, out RaycastHit hit, enemyLayer))
+{
+     reticle.transform.position = hit.point - direction * 0.2f;
+     reticle.transform.LookAt(mainCamera.position);
+}      
+```
