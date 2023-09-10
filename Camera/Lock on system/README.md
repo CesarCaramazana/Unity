@@ -25,14 +25,27 @@ Select the target with minimum distance/angle that is on sight. For this target,
 In ```Update()```, we check if the target remains at a certain distance and on sight, and unlock if it doesn't. We can apply a certain tolerance so that it does not unlock the target instantly, but after N seconds.
 
 ### Camera behavior
-We set up a Cinemachine Virtual camera that **follows** the player and **looks at** the target. When the target has been selected, we increase the ```Priority``` of the Lock-on Camera with respect to our Free Look camera (unlocked). 
+
+When the player is not locked on, we use a Cinemachine Free Look camera, with three orbital rigs that allows us to control, to some extent, the visual field. In this set-up, the camera **follows** and **looks at** the player. 
+
+[Free look camera](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Lock%20on%20system/Images/FreeLook%20(Follow%20player)%20camera.PNG)
+
+We set up a Cinemachine Virtual camera that **follows** the player and **looks at** the target. 
+
+[Virtual Camera setup](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Lock%20on%20system/Images/Virtual%20(LockOn)%20camera.PNG)
+
+*Note: since the player is not in control of this camera, the Input Provider does not have a reference to the Input Action*.
+
+When the target has been selected, we increase the ```Priority``` of the Lock-on Camera with respect to our Free Look camera (unlocked). 
 
 ```
 lockCamera.m_LookAt = lockTarget;
 lockCamera.Priority = 11;
 lockCamera.GetCinemachineComponent<CinemachineComposer>().m_TrackedObjectOffset.y = lockYOffset;
 ```
+Another way to transition between cameras --and probably a better way, since this is not very smooth--, is to use animation states (Cinemachine State Driven Camera). A problem I encountered with my set up is that switching back to the follow camera leads to sudden changes in the position and rotation, which may cause motion sickness. This is due to the Free Look camera not updating while the Lock On camera is on. 
 
+My temporary solution to this problem is to enable ```Target recentering``` in the FreeLook camera, if only for a few frames, so that at least the forward directions of both cameras are aligned. This is not, by all means, the ideal solution.
 
 ### UI reticle
 When locked on, a raycast is thrown from the player to the target. We detect the hit point on the enemy, offset the distance a little bit towards the player to avoid Z-fighting, and place a sprite renderer that always looks at the camera.
