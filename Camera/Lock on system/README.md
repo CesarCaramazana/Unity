@@ -28,11 +28,11 @@ In ```Update()```, we check if the target remains at a certain distance and on s
 
 When the player is not locked on, we use a Cinemachine Free Look camera, with three orbital rigs that allows us to control, to some extent, the visual field. In this set-up, the camera **follows** and **looks at** the player. 
 
-[!Free look camera](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Lock%20on%20system/Images/FreeLook%20(Follow%20player)%20camera.PNG)
+![Free look camera](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Lock%20on%20system/Images/FreeLook%20(Follow%20player)%20camera.PNG)
 
 We set up a Cinemachine Virtual camera that **follows** the player and **looks at** the target. 
 
-[!Virtual Camera setup](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Lock%20on%20system/Images/Virtual%20(LockOn)%20camera.PNG)
+![Virtual Camera setup](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Lock%20on%20system/Images/Virtual%20(LockOn)%20camera.PNG)
 
 *Note: since the player is not in control of this camera, the Input Provider does not have a reference to the Input Action*.
 
@@ -59,6 +59,10 @@ if(Physics.Linecast(mainCamera.position, lockTarget.position + Vector3.up * lock
      reticle.transform.LookAt(mainCamera.position);
 }      
 ```
+
+An example:
+
+![Reticle](https://github.com/CesarCaramazana/Unity/blob/main/Camera/Lock%20on%20system/Images/Reticle.PNG)
 
 
 ### Player movement
