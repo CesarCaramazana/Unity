@@ -52,6 +52,9 @@ public class LockOn : MonoBehaviour
         reticle = Instantiate(reticle);        
         if(sprite != null) reticle.sprite = sprite;
         reticle.enabled = false;
+
+        //lockCamera.transform.position = followCamera.transform.position;
+        //lockCamera.transform.rotation = followCamera.transform.rotation;
         
     }    
 
@@ -70,6 +73,7 @@ public class LockOn : MonoBehaviour
             else timeOffSight = 0f;
 
             if (!TargetOnRange() || timeOffSight > keepOffSightTime) UnlockTarget();
+
         }
         else UnlockTarget();
 
@@ -118,18 +122,43 @@ public class LockOn : MonoBehaviour
         {
             reticle.transform.position = hit.point - direction * 0.2f;
             reticle.transform.LookAt(mainCamera.position);
-        }
-        
+        }       
 
     }
 
+    private IEnumerator RecenterFollowCamera()
+    {
+        //Debug.Log("Recentering camera");
 
+        followCamera.m_RecenterToTargetHeading.m_enabled = true;
+        followCamera.m_YAxisRecentering.m_enabled = true;
+
+        followCamera.m_YAxisRecentering.m_RecenteringTime = 0f;
+        followCamera.m_RecenterToTargetHeading.m_RecenteringTime = 0.4f;
+
+        float endTime = Time.time + followCamera.m_RecenterToTargetHeading.m_RecenteringTime;
+
+        while (Time.time < endTime)
+        {
+            yield return null;
+        }
+        followCamera.m_RecenterToTargetHeading.m_enabled = false;
+        followCamera.m_YAxisRecentering.m_enabled = false;
+        //Debug.Log("End recentering");
+    }
 
     private void UnlockTarget()
     {
+        if (isLockedOn)
+        {
+            StopCoroutine(RecenterFollowCamera());
+            StartCoroutine(RecenterFollowCamera());
+        }
+
         isLockedOn = false;
         lockTarget = null;
         reticle.enabled = false;
+
 
         //followCamera.Priority = 10;
         lockCamera.Priority = 9;
