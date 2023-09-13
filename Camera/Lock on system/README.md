@@ -67,3 +67,6 @@ An example:
 
 ### Player movement
 We have to communicate the Player Controller that we are locked on. With this boolean, we can modify the movement of the player, for example, by restricting its rotation and playing a different set of animations. 
+
+Problems:
+- If the player is looking at the enemy and jumps, the rotation in X and Z will become greater than zero. If the player unlocks on the enemy while on air, this values will not automatically return to zero, causing it to face the floor. So it has to be done manually.
