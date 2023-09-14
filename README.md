@@ -19,3 +19,43 @@ Although each game is unique, there are some general directions on how to tackle
 In this repository I will be gathering both the solutions I've come across on tutorials and some implementations of my own, just for the sake of documenting my learning process, and also to have them all available in one place for an easier reuse.
 
 DISCLAIMER: I cannot promise all the scripts will be directly funcional. There may be errors and bad coding practices. I will reference the original sources.
+
+
+
+
+# Table of contents
+
+## Animation
+
+
+## Audio
+- Audio Manager
+- Audio System with Scriptable Objects
+
+## Camera
+- Camera shake
+- Dithering transparency (Player-camera occlusion)
+- Lock-on system
+
+## General C# scripting
+
+## Graphics
+### VFX
+- Mesh trail renderer
+
+## Input
+- Gamepad rumble
+- Input System: manager with C# class
+
+
+## Player controls
+### Character controller
+- Player movement
+- Lock-on system (repeated)
+
+### Rigidbody-based
+- Player movement
+
+  
+## UI
+- Pause menu
