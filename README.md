@@ -38,6 +38,7 @@ DISCLAIMER: I cannot promise all the scripts will be directly funcional. There m
 - Lock-on system
 
 ## General C# scripting
+- Object Pooling
 
 ## Graphics
 ### VFX
@@ -56,6 +57,12 @@ DISCLAIMER: I cannot promise all the scripts will be directly funcional. There m
 ### Rigidbody-based
 - Player movement
 
+### Gun controller
+- Gun
+- Bullet
+- Gun Controller
+- 
+### Melee controller
   
 ## UI
 - Pause menu
