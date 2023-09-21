@@ -13,8 +13,6 @@ public enum LockOnCriteria { Angle, Distance };
 public class LockOn : MonoBehaviour
 {
 
-    
-
     [Header("Lock on")]
     [SerializeField] private float scanDistance = 60f;
     [SerializeField] private float maxLockAngle = 60f;
@@ -26,6 +24,7 @@ public class LockOn : MonoBehaviour
 
     [Header("Tolerance")]
     [SerializeField] private float keepLockDistanceOffset = 20f; //If already locked, keep the lock for a little bit more than the scan distance
+    [SerializeField] private float minDistance = 2f;
     [SerializeField] private float keepOffSightTime = 2f; //How long the object must be blocked to lose lock on
     [SerializeField] private float timeOffSight = 0f;
 
@@ -126,17 +125,17 @@ public class LockOn : MonoBehaviour
 
     }
 
-    private IEnumerator RecenterFollowCamera()
+    private IEnumerator RecenterFollowCamera(float recenterTime)
     {
         //Debug.Log("Recentering camera");
 
         followCamera.m_RecenterToTargetHeading.m_enabled = true;
         followCamera.m_YAxisRecentering.m_enabled = true;
 
-        followCamera.m_YAxisRecentering.m_RecenteringTime = 0f;
-        followCamera.m_RecenterToTargetHeading.m_RecenteringTime = 0.4f;
+        followCamera.m_YAxisRecentering.m_RecenteringTime = recenterTime;
+        followCamera.m_RecenterToTargetHeading.m_RecenteringTime = recenterTime;
 
-        float endTime = Time.time + followCamera.m_RecenterToTargetHeading.m_RecenteringTime;
+        float endTime = Time.time + 2* followCamera.m_RecenterToTargetHeading.m_RecenteringTime;
 
         while (Time.time < endTime)
         {
@@ -151,9 +150,10 @@ public class LockOn : MonoBehaviour
     {
         if (isLockedOn)
         {
-            StopCoroutine(RecenterFollowCamera());
-            StartCoroutine(RecenterFollowCamera());
+            //StopCoroutine(RecenterFollowCamera());
+            StartCoroutine(RecenterFollowCamera(0.05f));
         }
+
 
         isLockedOn = false;
         lockTarget = null;
@@ -169,12 +169,13 @@ public class LockOn : MonoBehaviour
     {
         float distance = (transform.position - lockTarget.position).magnitude;
 
-        return (distance < scanDistance + keepLockDistanceOffset);
+        return ((distance < scanDistance + keepLockDistanceOffset) && (distance > minDistance));
     }
 
     private bool TargetOnSight(Transform target, float yOffset)
     {
         return !Physics.Linecast(transform.position + Vector3.up * 0.5f, target.position + Vector3.up * yOffset, ~enemyLayer);
+        //return !Physics.Linecast(mainCamera.transform.position, target.position + Vector3.up * yOffset, ~enemyLayer); //This collides with the player
     }
 
     private void Scan()
@@ -199,17 +200,16 @@ public class LockOn : MonoBehaviour
                 Transform currentTarget = nearbyTargets[i].transform;
 
                 //Debug.Log("\nTARGET: " + nearbyTargets[i].name);
-                Vector3 cameraTargetDirection = currentTarget.position - mainCamera.position;
-                cameraTargetDirection.y = 0f; //Forget vertical angle
-
-                float angle = Vector3.Angle(mainCamera.forward, cameraTargetDirection);
-                float distance = (currentTarget.position - transform.position).magnitude;
+                //cameraTargetDirection.y = 0f; //Forget vertical angle
 
                 bool onSight = TargetOnSight(currentTarget, 0.5f);
-                //bool onSight = true;
+                if (!onSight) continue;
+
+                Vector3 cameraTargetDirection = currentTarget.position - mainCamera.position;
 
                 if (criteria == LockOnCriteria.Angle)
                 {
+                    float angle = Vector3.Angle(mainCamera.forward, cameraTargetDirection);
                     if (angle < closestAngle && onSight)
                     {
                         closestAngle = angle;
@@ -219,6 +219,7 @@ public class LockOn : MonoBehaviour
                 }
                 else if (criteria == LockOnCriteria.Distance && onSight)
                 {
+                    float distance = (currentTarget.position - transform.position).magnitude;
                     if (distance < closestDistance)
                     {
                         closestDistance = distance;
@@ -236,6 +237,7 @@ public class LockOn : MonoBehaviour
             {
                 isLockedOn = false;
                 lockTarget = null;
+                StartCoroutine(RecenterFollowCamera(1.0f));
                 return;
             }
             else

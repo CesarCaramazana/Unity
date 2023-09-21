@@ -8,24 +8,27 @@ using UnityEngine.Rendering.Universal;
 public class GrappleHook : MonoBehaviour
 {
     [Header("Grapple movement")]
-    [SerializeField] private float pullSpeed = 15f;
+    [SerializeField] private float initialPullSpeed = 15f;
     [SerializeField] private float acceleration = 20f;
     [SerializeField] private float deceleration = 3f;
     [SerializeField] private float maxSpeed = 55f;
     private float speed;
 
     [Header("Grapple point detection")]
-    [SerializeField] private float scanDistance = 60f;
+    [SerializeField] private float maxDistance = 60f;
+    [SerializeField] private float minDistance = 3f;
     [SerializeField] private float maxAngle = 30f;
 
     [Space(5)]
     [SerializeField] private LayerMask grapplePointLayer;
     [SerializeField] private Transform grapplePoint;
-    [SerializeField] private float minDistance = 3f;
     [SerializeField] private bool isGrappling;
 
     [Space(10)]
     [SerializeField] private Transform grappleGunHoldPoint;
+
+    [Space(10)]
+    [SerializeField] private AudioEventSO grappleSFX;
 
     private Vector3 lastPullDirection;
 
@@ -47,7 +50,7 @@ public class GrappleHook : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {        
-        speed = pullSpeed;
+        speed = initialPullSpeed;
     }
 
 
@@ -86,7 +89,7 @@ public class GrappleHook : MonoBehaviour
         lastPullDirection = pullDirection;
 
         speed += acceleration * Time.deltaTime;
-        speed = Mathf.Clamp(speed, pullSpeed, maxSpeed);
+        speed = Mathf.Clamp(speed, initialPullSpeed, maxSpeed);
 
         Vector3 velocity = pullDirection * speed;
 
@@ -96,29 +99,7 @@ public class GrappleHook : MonoBehaviour
 
     }
 
-    private IEnumerator KeepMomentum()
-    {
-        //Debug.Log("Triggered coroutine KeepMomentum");
-        float currentSpeed = speed;
 
-        while(currentSpeed > 1f)
-        {
-            if (PlayerMovement.Instance.isGrounded || PlayerMovement.Instance.jumped) break;
-
-
-            //Debug.Log("current speed * " + currentSpeed);
-            currentSpeed = Mathf.Lerp(currentSpeed, 0f, deceleration * Time.deltaTime);
-
-            Vector3 velocity = (lastPullDirection + 0.5f * transform.up) * currentSpeed;
-
-
-            Vector3 moveAmount = velocity * Time.deltaTime;
-
-            PlayerMovement.Instance.playerController.Move(moveAmount);
-
-            yield return null;
-        }
-    }
 
 
     private void OnGrapple()
@@ -142,15 +123,16 @@ public class GrappleHook : MonoBehaviour
 
     private void ResetGrapple()
     {
+        //if (isGrappling) PlayerMovement.Instance.ApplyForce(lastPullDirection, speed, deceleration);
+        if (isGrappling) PlayerMovement.Instance.ApplyForce(lastPullDirection + 0.3f * transform.up, speed, deceleration);
+
         isGrappling = false;
         grapplePoint = null;
 
         lineRenderer.positionCount = 0;
         lineRenderer.enabled = false;
 
-        StartCoroutine(KeepMomentum());
-
-        speed = pullSpeed;
+        speed = initialPullSpeed;
     }
 
     private bool TargetTooClose(Transform target)
@@ -160,13 +142,15 @@ public class GrappleHook : MonoBehaviour
 
     private bool TargetOnSight(Transform target)
     {
-        return !Physics.Linecast(transform.position + Vector3.up * 0.5f, target.position, ~grapplePointLayer);
+        //return !Physics.Linecast(transform.position + Vector3.up * 0.5f, target.position, ~grapplePointLayer);
+        return target.GetComponentInChildren<Renderer>().isVisible;
+        //return !Physics.Linecast(mainCamera.transform.position, target.position, ~grapplePointLayer);
     }
 
     private void Scan()
     {
         // 1) Get all colliders in a sphere from player
-        Collider[] nearbyTargets = Physics.OverlapSphere(transform.position, scanDistance, grapplePointLayer); // OverlapSphereNonAlloc?
+        Collider[] nearbyTargets = Physics.OverlapSphere(transform.position, maxDistance, grapplePointLayer); // OverlapSphereNonAlloc?
 
         if (nearbyTargets.Length <= 0)
         {
@@ -183,23 +167,17 @@ public class GrappleHook : MonoBehaviour
             {
                 Transform currentTarget = nearbyTargets[i].transform;
 
-                //Debug.Log("\nTARGET: " + nearbyTargets[i].name);
-                Vector3 cameraTargetDirection = currentTarget.position - mainCamera.position;
-                //cameraTargetDirection.y = 0f; //Forget vertical angle
-
-                float angle = Vector3.Angle(mainCamera.forward, cameraTargetDirection);
-
                 bool onSight = TargetOnSight(currentTarget);
+                if (!onSight) continue;
+
+                Vector3 cameraTargetDirection = currentTarget.position - mainCamera.position;
+                float angle = Vector3.Angle(mainCamera.forward, cameraTargetDirection);
 
                 if (onSight && (angle < closestAngle))
                 {
                     closestAngle = angle;
                     closestTarget = currentTarget;
                 }
-
-                /*Debug.Log("Angle = " + angle);
-                Debug.Log("Distance = " + distance);
-                Debug.Log("On sight = " + onSight);*/
             }
 
             if (closestTarget == null)
@@ -215,6 +193,7 @@ public class GrappleHook : MonoBehaviour
                 lineRenderer.enabled = true;
                 lineRenderer.positionCount = 2;
                 //Debug.Log("Found point to grapple");
+                if (grappleSFX) grappleSFX.Play();
             }
         }
     }
@@ -240,7 +219,7 @@ public class GrappleHook : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        Gizmos.DrawWireSphere(transform.position, scanDistance);
+        Gizmos.DrawWireSphere(transform.position, maxDistance);
 
         if (grapplePoint != null) Gizmos.DrawLine(transform.position + Vector3.up * 0.5f, grapplePoint.position);
 

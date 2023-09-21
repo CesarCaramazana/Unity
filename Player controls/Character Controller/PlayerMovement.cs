@@ -10,22 +10,71 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
+    public bool canMove = true;
+
     [Header("Horizontal movement")]
     [SerializeField] private float walkSpeed = 8f;
-    [HideInInspector] public float speed;
+    [HideInInspector] public float speed;// { get; private set; }
     [SerializeField] private float sprintMultiplier = 2f;
-    [HideInInspector] public float maxSpeed;
+    [HideInInspector] public float maxSpeed { get; private set; }
     [SerializeField] private float airMultiplier = 0.8f;
     [SerializeField] private float rotationSpeed = 10f;
-    public float verticalInput;
-    public float horizontalInput;
+    [SerializeField] public Vector2 inputDirection { get; private set; }
+    [SerializeField] private float acceleration = 2f;
+    [SerializeField] public float deceleration { get; private set; } = 2f;
+    [SerializeField] private bool accelerationModel = false;
+
+
     private float speedMultiplier = 1f;
     private float inputMultiplier = 1f;
-    private bool sprint;    
+    private bool sprint;
 
     private Vector3 moveDirection;
-    private Vector3 moveVelocity;
-   
+    [HideInInspector] public Vector3 moveVelocity;
+    [HideInInspector] public float verticalVelocity;
+
+    [Header("Vertical movement")]
+    [SerializeField] private float initialJumpForce = 8f;
+    [SerializeField] private int numberOfJumps = 3;
+    [SerializeField] private float jumpCooldown = 0.3f;
+    [SerializeField] private bool dampNextJump = true;
+    [SerializeField] private float dampJumpFactor = 1.4f;
+
+    [Space(15)]
+    [SerializeField] private float gravity = -70f;
+    [SerializeField] private LayerMask groundLayer;
+    [SerializeField] private float groundRaycastDistance = 0.5f;
+
+    public bool hitGround { get; private set; } = false;
+    private bool lastFrameGrounded; 
+
+    private float terminalVelocity = -60f; //Max fall speed
+
+
+    [HideInInspector] private float jumpForce;
+    [HideInInspector] public bool jumped { get; private set; }
+    [HideInInspector] public bool canJump { get; private set; }
+    [HideInInspector] public int remainingJumps { get; private set; }
+    [HideInInspector] public int jumpCount { get; private set; }
+    private float timeToJump;
+
+    [Space(10)]
+    [Header("Wall jump")]
+    [SerializeField] private float wallGravity = -20.0f;
+    [SerializeField] private float wallJumpMultiplier = 2f;
+    [SerializeField] private LayerMask wallLayer;
+    private float wallRaycastDistance = 0.6f;
+
+    private Vector3 wallNormal;
+
+    [Header("Wall run")]
+    [SerializeField] private float wallrunBaseSpeed = 10f;
+    [SerializeField] private float wallrunFOV = 70f;
+    [SerializeField] private float fovChangeSpeed = 5f;
+    [SerializeField] private float cameraDutchAngle = 40f;
+    [SerializeField] private bool wallrunOnSprint = true;
+    [SerializeField] private bool accelerationModelWallrun = true;
+
 
     [Header("Dash")]
     [SerializeField] private float dashSpeed = 35f;
@@ -34,64 +83,32 @@ public class PlayerMovement : MonoBehaviour
     private float timeToDash;
     private IEnumerator dashCoroutine;
 
-    [Header("Jump")]
-    [SerializeField] private float gravity = -70f;
-    [SerializeField] private float initialJumpForce = 8f;
-    [SerializeField] private float jumpCooldown = 0.3f;
-    [HideInInspector] public float verticalVelocity;
-    private float terminalVelocity = -60f; //Max fall speed
-
-    [SerializeField] private float groundRaycastDistance = 0.2f;
-    
-    [HideInInspector] public bool jumped;
-    [HideInInspector] public bool canJump;
-
-    [Header("Double jump")]
-    [SerializeField] private int numberOfJumps = 3;
-    [HideInInspector] private float jumpForce;
-    [HideInInspector] public int remainingJumps;
-    [SerializeField] private bool dampNextJump = true;
-    [SerializeField] private float dampJumpFactor = 1.4f;
-    [HideInInspector] public int jumpCount;
-    private float timeToJump;
-
-
-    [Header("Wall jump")]
-    [SerializeField] private float wallGravity = -20.0f;
-    [SerializeField] private float wallRaycastDistance = 0.6f;
-    [SerializeField] private float wallJumpMultiplier = 2f;
-    [SerializeField] private LayerMask wallLayer;
-        
-    private Vector3 wallNormal;
-
-    [Header("Wallrun")]
-    [SerializeField] private float wallrunBaseSpeed = 10f;
-    [SerializeField] private bool wallrunOnSprint = true;
-    [SerializeField] private float wallrunFOV = 70f;
-    [SerializeField] private float fovChangeRate = 5f;
-    [SerializeField] private float cameraDutchAngle = 30f;
-
 
     [Header("Slopes")]
     [SerializeField] private float slopeRaycastDistance = 0.55f;
     private bool exitingSlope;
-    
+
     private RaycastHit slopeHit;
 
+    [Header("Grappling hook")]
+    [SerializeField] private float grapplingResetJumpTime = 1.5f;
+    private float timeGrappling;
 
-    [HideInInspector] public bool isSprinting;
-    [HideInInspector] public bool isWalking;
-    [HideInInspector] public bool isMoving;
-    [HideInInspector] public bool isDashing;
-    [HideInInspector] public bool isWallrunning;
-    [HideInInspector] public bool isGrounded = false;
-    [HideInInspector] public bool onSlope = false;
-    [HideInInspector] public bool onWall = false;
-    public bool onRightWall, onLeftWall, onFrontWall;
 
-    [Space(10)]
-    [SerializeField] public bool isLockedOn;
+    [HideInInspector] public bool isSprinting { get; private set; }
+    [HideInInspector] public bool isWalking { get; private set; }
+    [HideInInspector] public bool isMoving { get; private set; }
+    [HideInInspector] public bool isDashing { get; private set; }
+    [HideInInspector] public bool isWallrunning { get; private set; }
+    [HideInInspector] public bool isGrappling { get; set; }
+    [HideInInspector] public bool isGrounded { get; private set; }
+    [HideInInspector] public bool onSlope { get; private set; }
+    [HideInInspector] public bool onWall { get; private set; }
+    [HideInInspector] public bool onRightWall, onLeftWall, onFrontWall;
+
+    [Header("Lock-on")]
     [SerializeField] public Transform lockTarget;
+    [SerializeField] public bool isLockedOn;
 
 
     [Space(10)]
@@ -105,8 +122,11 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("VFX")]
     [SerializeField] private ParticleSystem jumpVFX;
+    [SerializeField] private ParticleSystem hitGroundVFX;
     [SerializeField] private MeshTrailVFX dashVFX;
     [SerializeField] private MeshTrailVFX wallrunVFX;
+
+    [SerializeField] public bool rumble = true;
 
     [Space(10)]
     [SerializeField] private CinemachineFreeLook freelookCamera;
@@ -133,6 +153,7 @@ public class PlayerMovement : MonoBehaviour
         remainingJumps = numberOfJumps;
         timeToJump = Time.time;
         timeToDash = Time.time;
+        timeGrappling = 0f;
 
         maxSpeed = walkSpeed * sprintMultiplier;
 
@@ -154,6 +175,8 @@ public class PlayerMovement : MonoBehaviour
     private void GetComponents()
     {
         playerController = GetComponent<CharacterController>();
+        //playerController.detectCollisions = true;
+
         mainCamera = Camera.main.transform;
         playerInput = GetComponent<PlayerInput>();
 
@@ -170,8 +193,10 @@ public class PlayerMovement : MonoBehaviour
         CheckOnWall();
 
         Gravity();
+
         Jump();
         Move();
+
     }
 
     private void LateUpdate()
@@ -185,14 +210,11 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnMove(InputValue inputValue)
     {
-        Vector2 inputDirection = inputValue.Get<Vector2>().normalized;
+        inputDirection = inputValue.Get<Vector2>().normalized;
 
-        inputMultiplier = inputValue.Get<Vector2>().magnitude;
+        //inputMultiplier = inputValue.Get<Vector2>().magnitude;
 
         //Debug.Log("Magnitude of input vector: " + inputValue.Get<Vector2>().magnitude);
-
-        horizontalInput = inputDirection.x;
-        verticalInput = inputDirection.y;
 
         //Cast input direction into a 3D vector
         moveDirection = new Vector3(inputDirection.x, 0.0f, inputDirection.y);
@@ -211,9 +233,10 @@ public class PlayerMovement : MonoBehaviour
     private void Move()
     {
         Vector3 moveAmount = Vector3.zero;
-        isMoving = (moveDirection != Vector3.zero);        
+        isMoving = (moveDirection != Vector3.zero);
+        moveVelocity = new Vector3(0, moveVelocity.y, 0);
 
-        if (!isMoving)
+        if (!isMoving || !canMove)
         {
             isWalking = isSprinting = isWallrunning = false;
             speed = 0f;
@@ -224,38 +247,37 @@ public class PlayerMovement : MonoBehaviour
             isSprinting = sprint;
             isWalking = !isSprinting;
 
-            Vector3 moveVelocity;
+            Vector3 horizontalVelocity;
             speedMultiplier = sprint ? sprintMultiplier : 1;
 
             //Wallrunning
             if (onWall && (!wallrunOnSprint || isSprinting))
             {
-                moveVelocity = WallrunVelocity();                
+                horizontalVelocity = WallrunVelocity();
             }
             //Ground/Air movement
             else
             {
-                moveVelocity = GroundAirVelocity();
+                horizontalVelocity = GroundAirVelocity();
             }
 
-            Vector3 horizontalMoveAmount = moveVelocity * Time.deltaTime;
+            Vector3 horizontalMoveAmount = horizontalVelocity * Time.deltaTime;
             moveAmount += horizontalMoveAmount;
 
-
             //Footstep SFX
-            if (footstepsSFX && isGrounded && !isDashing && Time.time > nextFootstepTime)
+            if (footstepsSFX && (isGrounded || isWallrunning) && !isDashing && Time.time > nextFootstepTime)
             {
                 //Debug.Log("Next footstep sfx " + (timeBetweenFootsteps / speedMultiplier));
                 footstepsSFX.Play();
-                nextFootstepTime = Time.time + (timeBetweenFootsteps/speedMultiplier);
-
+                nextFootstepTime = Time.time + (timeBetweenFootsteps / speedMultiplier);
             }
 
-            if(!isLockedOn && !isWallrunning) FaceCameraForward();
+            if (!isLockedOn && !isWallrunning) FaceCameraForward();
 
-        }        
+        }
 
         //Apply vertical velocity computed in Jump() and Gravity()
+        //moveVelocity.y = verticalVelocity;
         Vector3 verticalMoveAmount = new Vector3(0, verticalVelocity, 0) * Time.deltaTime;
         moveAmount += verticalMoveAmount;
 
@@ -268,6 +290,26 @@ public class PlayerMovement : MonoBehaviour
 
     }
 
+    private float Accelerate(float currentSpeed, float targetSpeed)
+    {
+        float newSpeed;
+
+        //Debug.Log("Current speed = " + currentSpeed);
+        //Debug.Log("Target speed = " + targetSpeed);
+        if (currentSpeed < targetSpeed - 0.1f || currentSpeed > targetSpeed + 0.1f)
+        {
+            newSpeed = Mathf.Lerp(currentSpeed, targetSpeed, acceleration * Time.deltaTime);
+            newSpeed = Mathf.Round(newSpeed * 1000f) / 1000f;
+        }
+        else
+        {
+            newSpeed = targetSpeed;
+        }
+        //Debug.Log("New speed: " + newSpeed);
+
+        return newSpeed;
+    }
+
 
     private Vector3 GroundAirVelocity()
     {
@@ -277,28 +319,19 @@ public class PlayerMovement : MonoBehaviour
 
         //Calculate speed multiplier based on sprinting and airborne
         float airControl = isGrounded ? 1 : airMultiplier;
-        speed = walkSpeed * speedMultiplier * airControl; // * inputMultiplier;
+        float targetSpeed = walkSpeed * speedMultiplier * airControl; // * inputMultiplier;
+
+        if (accelerationModel) speed = Accelerate(speed, targetSpeed);
+        else speed = targetSpeed;
+
+        //speed = walkSpeed * speedMultiplier * airControl; // * inputMultiplier;
 
         //Velocity
         moveVelocity = moveDirection * speed;
         //Debug.Log("Move velocity: " + moveVelocity);
 
         //Reset wallrun camera effects
-        if (wallrunVFX) wallrunVFX.Stop();
-        if (freelookCamera != null)
-        {
-            //FOV
-            float currentFOV = freelookCamera.m_Lens.FieldOfView;
-            if (currentFOV != normalFOV) freelookCamera.m_Lens.FieldOfView = Mathf.Lerp(currentFOV, normalFOV, fovChangeRate * Time.deltaTime);
-
-            //Recenter disabled
-            freelookCamera.m_RecenterToTargetHeading.m_enabled = false;
-            freelookCamera.m_YAxisRecentering.m_enabled = false;
-
-            //Dutch angle
-            float currentAngle = freelookCamera.m_Lens.Dutch;
-            freelookCamera.m_Lens.Dutch = Mathf.Lerp(currentAngle, 0f, fovChangeRate * Time.deltaTime);
-        }
+        WallrunEffectsDisable();
 
         return moveVelocity;
     }
@@ -319,17 +352,29 @@ public class PlayerMovement : MonoBehaviour
         //Make the transform.forward align to the wallrun direction
         transform.forward = Vector3.Lerp(transform.forward, wallrunDirection, rotationSpeed * Time.deltaTime);
 
-        //Calculate velocity
-        moveVelocity = wallrunDirection * wallrunBaseSpeed * speedMultiplier;
+        float targetSpeed = wallrunBaseSpeed * speedMultiplier; // * inputMultiplier;
 
+        if (accelerationModelWallrun) speed = Accelerate(speed, targetSpeed);
+        else speed = targetSpeed;
+
+        //Calculate velocity
+        moveVelocity = wallrunDirection * speed;
 
         //Visuals
+        WallrunEffectsEnable(polarity);
+
+        return moveVelocity;
+    }
+
+
+    private void WallrunEffectsEnable(int polarity)
+    {
         if (wallrunVFX != null) wallrunVFX.Play();
         if (freelookCamera != null)
         {
             //FOV
             float currentFOV = freelookCamera.m_Lens.FieldOfView;
-            freelookCamera.m_Lens.FieldOfView = Mathf.Lerp(currentFOV, wallrunFOV, fovChangeRate * Time.deltaTime);
+            freelookCamera.m_Lens.FieldOfView = Mathf.Lerp(currentFOV, wallrunFOV, fovChangeSpeed * Time.deltaTime);
 
             //Center to target
             freelookCamera.m_RecenterToTargetHeading.m_enabled = true;
@@ -339,12 +384,31 @@ public class PlayerMovement : MonoBehaviour
 
             //Dutch angle
             float currentAngle = freelookCamera.m_Lens.Dutch;
-            freelookCamera.m_Lens.Dutch = Mathf.Lerp(currentAngle, -polarity * cameraDutchAngle, fovChangeRate * Time.deltaTime);
+            freelookCamera.m_Lens.Dutch = Mathf.Lerp(currentAngle, -polarity * cameraDutchAngle, fovChangeSpeed / 2 * Time.deltaTime);
         }
-
-        return moveVelocity;
     }
 
+
+    private void WallrunEffectsDisable()
+    {
+        if (wallrunVFX) wallrunVFX.Stop();
+        if (freelookCamera != null)
+        {
+            //FOV
+            float currentFOV = freelookCamera.m_Lens.FieldOfView;
+            if (currentFOV != normalFOV) freelookCamera.m_Lens.FieldOfView = Mathf.Lerp(currentFOV, normalFOV, fovChangeSpeed * Time.deltaTime);
+
+            //Recenter disabled
+            freelookCamera.m_RecenterToTargetHeading.m_enabled = false;
+            freelookCamera.m_YAxisRecentering.m_enabled = false;
+
+            //Dutch angle
+            float currentAngle = freelookCamera.m_Lens.Dutch;
+            freelookCamera.m_Lens.Dutch = Mathf.Lerp(currentAngle, 0f, fovChangeSpeed * Time.deltaTime);
+        }
+
+
+    }
 
     private void LookAtTarget()
     {
@@ -353,7 +417,7 @@ public class PlayerMovement : MonoBehaviour
         transform.rotation = Quaternion.Lerp(transform.rotation, rotation, Time.deltaTime * rotationSpeed / 2f);
 
     }
-    
+
     public void ResetLookAtTarget()
     {
         //Debug.Log("Transform rotation " + transform.rotation);
@@ -377,10 +441,18 @@ public class PlayerMovement : MonoBehaviour
             if (onWall)
             {
                 verticalVelocity += wallGravity * Time.deltaTime;
+                timeGrappling = 0f;
+            }
+            else if (isGrappling)
+            {
+                //No gravity while grappling?
+                verticalVelocity = 0f;
+                timeGrappling += Time.deltaTime;
             }
             else
             {
                 verticalVelocity += gravity * Time.deltaTime;
+                timeGrappling = 0f;
             }
         }
     }
@@ -392,7 +464,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void Jump()
     {
-        canJump = (remainingJumps > 0 && Time.time > timeToJump);
+        canJump = (remainingJumps > 0 && Time.time > timeToJump && canMove);
 
         if (jumped && canJump)
         {
@@ -402,15 +474,18 @@ public class PlayerMovement : MonoBehaviour
             if (jumpCount == numberOfJumps)
             {
                 if (jumpVFX != null) jumpVFX.Play();
+                if (hitGroundVFX != null) hitGroundVFX.Play();
                 if (tripleJumpSFX != null) tripleJumpSFX.Play();
+                if (rumble) GamepadRumble.Instance.Play();
             }
 
 
             if (onWall)
             {
                 //Debug.Log("WALL JUMP!");
-                jumpVFX.Play();
-                StartCoroutine(WallJump(0.2f));
+                if (jumpVFX != null) jumpVFX.Play();
+                //StartCoroutine(WallJump(0.2f));
+                ApplyForce(wallNormal, jumpForce * wallJumpMultiplier, deceleration, breakOnJump: false, breakOnWall: false);
             }
 
 
@@ -424,13 +499,39 @@ public class PlayerMovement : MonoBehaviour
     }
 
 
+    public void ApplyForce(Vector3 direction, float initialSpeed, float deceleration, bool breakOnJump = true, bool breakOnGround = true, bool breakOnWall = true)
+    {
+        StartCoroutine(ApplyMomentum(direction, initialSpeed, deceleration, breakOnJump, breakOnGround, breakOnWall));
+    }
+
+    private IEnumerator ApplyMomentum(Vector3 direction, float initialSpeed, float deceleration, bool breakOnJump, bool breakOnGround, bool breakOnWall)
+    {
+        float currentSpeed = initialSpeed;
+        while (currentSpeed > 0.1)
+        {
+            //if (isGrounded || jumped || onWall) break;
+            if ((breakOnGround && hitGround) || (breakOnJump && (jumped && canJump)) || (breakOnWall && onWall)) break;
+
+            Vector3 moveAmount = direction * currentSpeed * Time.deltaTime;
+            playerController.Move(moveAmount);
+
+            currentSpeed = Mathf.Lerp(currentSpeed, 0f, deceleration * Time.deltaTime);
+            yield return null;
+
+
+        }
+    }
+
     private IEnumerator WallJump(float walljumpDuration)
     {
-        float walljumpEnd = Time.time + walljumpDuration;
+        float currentSpeed = wallJumpMultiplier * jumpForce;
 
-        while (Time.time < walljumpEnd)
+        while (currentSpeed > 0.1)
         {
-            playerController.Move(wallNormal * jumpForce * wallJumpMultiplier * Time.deltaTime);
+            if (isGrounded || isMoving) break;
+
+            playerController.Move(wallNormal * currentSpeed * Time.deltaTime);
+            currentSpeed = Mathf.Lerp(currentSpeed, 0f, deceleration * Time.deltaTime);
             yield return null;
         }
 
@@ -449,7 +550,7 @@ public class PlayerMovement : MonoBehaviour
     private void OnDash()
     {
         //Debug.Log("Dash");
-        if (Time.time > timeToDash)
+        if (Time.time > timeToDash && canMove)
         {
             if (dashCoroutine != null)
             {
@@ -468,7 +569,6 @@ public class PlayerMovement : MonoBehaviour
     {
         float startTime = Time.time;
         exitingSlope = true;
-
 
         if (dashSFX != null) dashSFX.Play();
         if (dashVFX != null) dashVFX.Play();
@@ -518,24 +618,40 @@ public class PlayerMovement : MonoBehaviour
         remainingJumps = numberOfJumps;
         jumpForce = initialJumpForce;
         exitingSlope = false;
+
+        timeGrappling = 0f;
     }
 
     private void UpdateJumpCount()
     {
         if (jumped) jumped = false;
         jumpCount = numberOfJumps - remainingJumps + 1;
+
     }
 
     //CHECKS: OnWall, Grounded, OnSlope
 
     private void CheckIsGrounded()
     {
-        isGrounded = Physics.Raycast(transform.position, Vector3.down, groundRaycastDistance);
+        lastFrameGrounded = isGrounded;
+
+        RaycastHit hit;
+        isGrounded = Physics.Raycast(transform.position, Vector3.down, out hit, groundRaycastDistance, groundLayer);
+
+        hitGround = (!lastFrameGrounded && isGrounded);
+        if (hitGround && hitGroundVFX)
+        {
+            hitGroundVFX.Play();
+
+        }
+
 
         //isGrounded = playerController.isGrounded;
 
         if ((isGrounded || onWall) && Time.time > timeToJump) ResetJumps();
+        if (timeGrappling > grapplingResetJumpTime) ResetJumps();
     }
+
 
 
     private void CheckOnWall()
@@ -547,10 +663,9 @@ public class PlayerMovement : MonoBehaviour
         Vector3 leftDiagonalDirection = (-transform.right + transform.forward) * wallRaycastDistance + playerPosition;
 
         Debug.DrawLine(playerPosition, rightDirection, Color.yellow);
-        Debug.DrawLine(playerPosition, leftDirection , Color.blue);
+        Debug.DrawLine(playerPosition, leftDirection, Color.blue);
         Debug.DrawLine(playerPosition, rightDiagonalDirection, Color.yellow);
         Debug.DrawLine(playerPosition, leftDiagonalDirection, Color.blue);
-
 
         onLeftWall = false;
         onRightWall = false;
@@ -558,7 +673,7 @@ public class PlayerMovement : MonoBehaviour
 
         RaycastHit hit;
 
-        if ((Physics.Raycast(playerPosition, transform.right, out hit, wallRaycastDistance,wallLayer)) ||
+        if ((Physics.Raycast(playerPosition, transform.right, out hit, wallRaycastDistance, wallLayer)) ||
             (Physics.Raycast(playerPosition, transform.right + transform.forward, out hit, wallRaycastDistance, wallLayer)))
         {
             //Debug.Log("Wall on right");
@@ -598,7 +713,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void CheckOnSlope()
     {
-        if (Physics.Raycast(transform.position + 0.1f * Vector3.up, Vector3.down, out slopeHit, slopeRaycastDistance))
+        if (Physics.Raycast(transform.position + 0.1f * Vector3.up, Vector3.down, out slopeHit, slopeRaycastDistance, groundLayer))
         {
             if (slopeHit.normal != Vector3.up)
             {
@@ -614,40 +729,5 @@ public class PlayerMovement : MonoBehaviour
             onSlope = false;
         }
     }
-
-
-    private void CommentedSections()
-    {
-        /*
-            //Climb walls
-            if (onFrontWall)
-            {
-                Debug.Log("Climb up the walls");
-                verticalVelocity = climbSpeed * speedMultiplier;
-            }
-
-            //Wall run
-            if ((onLeftWall || onRightWall) && isSprinting)
-            {
-                Debug.Log("Wallrunning");
-                playerController.Move(transform.forward * wallrunBaseSpeed * speedMultiplier * Time.deltaTime);
-
-            }
-            */
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 }
