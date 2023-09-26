@@ -8,17 +8,15 @@ using UnityEngine.InputSystem;
 //using Cinemachine;
 
 
-public enum LockOnCriteria { Angle, Distance };
 
 public class LockOn : MonoBehaviour
 {
 
-    
-
     [Header("Lock on")]
     [SerializeField] private float scanDistance = 60f;
-    [SerializeField] private float maxLockAngle = 60f;
-    [SerializeField] private LockOnCriteria criteria = LockOnCriteria.Angle;
+    [SerializeField] private float maxScreenDistanceFactor = 0.5f;
+    [SerializeField] private int maxColliders = 10;
+    private float maxScreenDistance;
 
     [Space(5)]
     [SerializeField] private LayerMask enemyLayer;
@@ -26,12 +24,21 @@ public class LockOn : MonoBehaviour
 
     [Header("Tolerance")]
     [SerializeField] private float keepLockDistanceOffset = 20f; //If already locked, keep the lock for a little bit more than the scan distance
+    [SerializeField] private float minDistance = 2f;
     [SerializeField] private float keepOffSightTime = 2f; //How long the object must be blocked to lose lock on
-    [SerializeField] private float timeOffSight = 0f;
+    private float timeOffSight = 0f;
 
     [Space(10)]
     [SerializeField] private Transform lockTarget;
-    [SerializeField] private float lockYOffset;
+
+    [Header("Recenter")]
+    [SerializeField] float recenterTime = 0.3f;
+
+
+    [Header("Switch target")]
+    [SerializeField] private float threshold = 0.6f;
+    private float xInputValue;
+    private bool hasTriggeredSwitchTarget;
 
     [Header("Reticle UI")]
     [SerializeField] private Sprite sprite;
@@ -44,6 +51,8 @@ public class LockOn : MonoBehaviour
     private Transform mainCamera;
     private PlayerInput playerInput;
 
+    private Vector2 screenCenter;
+
     // Start is called before the first frame update
     void Start()
     {
@@ -54,7 +63,7 @@ public class LockOn : MonoBehaviour
         reticle.enabled = false;
 
         //lockCamera.transform.position = followCamera.transform.position;
-        lockCamera.transform.rotation = followCamera.transform.rotation;
+        //lockCamera.transform.rotation = followCamera.transform.rotation;
         
     }    
 
@@ -65,8 +74,10 @@ public class LockOn : MonoBehaviour
         if (lockTarget)
         {
             DrawReticleOnTarget();
+            TrySwitchTarget();
 
-            if (!TargetOnSight(lockTarget, lockYOffset))
+
+            if (!TargetOnSight(lockTarget))
             {
                 timeOffSight += Time.deltaTime;
             }
@@ -91,10 +102,10 @@ public class LockOn : MonoBehaviour
         playerInput = GetComponent<PlayerInput>();
         mainCamera = Camera.main.transform;
 
+        screenCenter.x = Screen.width / 2;
+        screenCenter.y = Screen.height / 2;
+        maxScreenDistance = Screen.width * maxScreenDistanceFactor;
     }
-
-
-
 
 
     private void OnLockOn()
@@ -111,33 +122,63 @@ public class LockOn : MonoBehaviour
         }
     }
 
+    private void OnLook(InputValue inputValue)
+    {
+        xInputValue = inputValue.Get<Vector2>().x;
+        //Debug.Log("Input direction in here " + xInputValue);
+
+    }
+
+    private void TrySwitchTarget()
+    {
+        if(xInputValue > threshold + 0.05f && !hasTriggeredSwitchTarget)
+        {
+            hasTriggeredSwitchTarget = true;
+            SwitchTarget(+1);
+            //Debug.Log("FIND NEW TARGET ON THE RIGHT");
+        }
+        else if (xInputValue < -threshold -0.05f && !hasTriggeredSwitchTarget)
+        {
+            hasTriggeredSwitchTarget = true;
+            SwitchTarget(-1);
+            //Debug.Log("FIND NEW TARGET ON THE LEFT");
+        }
+
+        else if ((xInputValue < threshold - 0.05f) && (xInputValue > -threshold + 0.05f) && hasTriggeredSwitchTarget)
+        {
+            //Debug.Log("Reset trigger");
+            hasTriggeredSwitchTarget = false;
+        }
+    }
+
+
 
     private void DrawReticleOnTarget()
     {
         //Vector3 renderPosition;
 
-        Vector3 direction = ((lockTarget.position + Vector3.up * lockYOffset) - mainCamera.position).normalized;
+        Vector3 direction = ((lockTarget.position) - mainCamera.position).normalized;
 
-        if(Physics.Linecast(mainCamera.position, lockTarget.position + Vector3.up * lockYOffset, out RaycastHit hit, enemyLayer))
+        if(Physics.Linecast(mainCamera.position, lockTarget.position, out RaycastHit hit, enemyLayer))
         {
             reticle.transform.position = hit.point - direction * 0.2f;
             reticle.transform.LookAt(mainCamera.position);
-        }
-        
+        }       
 
     }
 
-    private IEnumerator RecenterFollowCamera()
+    private IEnumerator RecenterFollowCamera(float recenterTime)
     {
-        float endTime = Time.time + 2 * Time.deltaTime;
         //Debug.Log("Recentering camera");
 
         followCamera.m_RecenterToTargetHeading.m_enabled = true;
         followCamera.m_YAxisRecentering.m_enabled = true;
-        while (Time.time < endTime)
-        {
-            yield return null;
-        }
+
+        followCamera.m_YAxisRecentering.m_RecenteringTime = recenterTime / 2;
+        followCamera.m_RecenterToTargetHeading.m_RecenteringTime = recenterTime/ 2;
+
+        yield return new WaitForSeconds(recenterTime);
+
         followCamera.m_RecenterToTargetHeading.m_enabled = false;
         followCamera.m_YAxisRecentering.m_enabled = false;
         //Debug.Log("End recentering");
@@ -147,9 +188,11 @@ public class LockOn : MonoBehaviour
     {
         if (isLockedOn)
         {
-            StopCoroutine(RecenterFollowCamera());
-            StartCoroutine(RecenterFollowCamera());
+            //StopCoroutine(RecenterFollowCamera());
+            //StartCoroutine(RecenterFollowCamera(0.05f));
+            //RecenterFollowCamera();
         }
+
 
         isLockedOn = false;
         lockTarget = null;
@@ -165,96 +208,153 @@ public class LockOn : MonoBehaviour
     {
         float distance = (transform.position - lockTarget.position).magnitude;
 
-        return (distance < scanDistance + keepLockDistanceOffset);
+        return ((distance < scanDistance + keepLockDistanceOffset) && (distance > minDistance));
     }
 
-    private bool TargetOnSight(Transform target, float yOffset)
+    private bool TargetOnSight(Transform target)
     {
-        return !Physics.Linecast(transform.position + Vector3.up * 0.5f, target.position + Vector3.up * yOffset, ~enemyLayer);
+        return !Physics.Linecast(transform.position + Vector3.up * 0.5f, target.position, ~enemyLayer);
+        //return !Physics.Linecast(mainCamera.transform.position, target.position + Vector3.up * yOffset, ~enemyLayer); //This collides with the player
+    }
+
+    private void SwitchTarget(int polarity)
+    {
+        Collider[] hitColliders = new Collider[maxColliders];
+        int numNearbyTargets = Physics.OverlapSphereNonAlloc(transform.position, scanDistance, hitColliders, enemyLayer);
+
+        if (numNearbyTargets == 0)
+        {
+            return;
+        }
+        else
+        {
+            float closestDistance = Screen.width / 2;
+            Transform closestTarget = null;
+
+            for (int i = 0; i < numNearbyTargets; i++)
+            {
+                LockableObject lockableObject = hitColliders[i].GetComponent<LockableObject>();
+                if (lockableObject == null)
+                {
+                    continue;
+                }
+                Transform currentTarget = lockableObject.LockPoint();
+                Vector3 positionOnScreen = Camera.main.WorldToScreenPoint(currentTarget.position);
+
+                //bool onSight = positionOnScreen.z > 0f;
+                //bool onSight = TargetOnSight(currentTarget);
+                bool onSight = (TargetOnSight(currentTarget) && (positionOnScreen.z > 0));
+                if (!onSight) continue;
+
+
+                float xDistance = (positionOnScreen.x - screenCenter.x) * polarity;
+                if (xDistance < 0) continue;
+
+                //Debug.Log("X difference = " + xDistance);
+
+                if (xDistance < closestDistance && currentTarget != lockTarget)
+                {
+                    closestDistance = xDistance;
+                    closestTarget = currentTarget;
+
+                }
+            }
+
+            //Check if we have a valid target and enable Lock-On
+            // No target
+            
+            if (closestTarget == null)
+            {
+                return;
+            }
+            // Target
+            else
+            {
+                lockTarget = closestTarget;
+                lockCamera.m_LookAt = lockTarget;
+            }
+            
+        }
+
     }
 
     private void Scan()
     {
-        // 1) Get all colliders in a sphere from player
-        Collider[] nearbyTargets = Physics.OverlapSphere(transform.position, scanDistance, enemyLayer); // OverlapSphereNonAlloc?
+        
+        Collider[] hitColliders = new Collider[maxColliders];
 
-        if (nearbyTargets.Length <= 0)
+        int numNearbyTargets = Physics.OverlapSphereNonAlloc(transform.position, scanDistance, hitColliders, enemyLayer);
+
+        //Debug.Log("Number of near targets NonAlloc = " +  numNearbyTargets);
+        if (numNearbyTargets == 0)
         {
-            //Debug.Log("No targets in range");
-            return; //No targets in range
+            StartCoroutine(RecenterFollowCamera(recenterTime));
+            return;
         }
         else
         {
-            //Get the target closest to the center of the screen (min angle between camera.forward and target)
-            float closestAngle = maxLockAngle;
-            float closestDistance = scanDistance;
+            float closestDistance = maxScreenDistance;
             Transform closestTarget = null;
 
-            for (int i = 0; i < nearbyTargets.Length; i++)
+            for (int i = 0; i < numNearbyTargets; i++)
             {
-                Transform currentTarget = nearbyTargets[i].transform;
-
-                //Debug.Log("\nTARGET: " + nearbyTargets[i].name);
-                Vector3 cameraTargetDirection = currentTarget.position - mainCamera.position;
-                cameraTargetDirection.y = 0f; //Forget vertical angle
-
-                float angle = Vector3.Angle(mainCamera.forward, cameraTargetDirection);
-                float distance = (currentTarget.position - transform.position).magnitude;
-
-                bool onSight = TargetOnSight(currentTarget, 0.5f);
-                //bool onSight = true;
-
-                if (criteria == LockOnCriteria.Angle)
+                //Debug.Log(hitColliders[i].gameObject.name);
+                LockableObject lockableObject = hitColliders[i].GetComponent<LockableObject>();
+                if (lockableObject == null)
                 {
-                    if (angle < closestAngle && onSight)
-                    {
-                        closestAngle = angle;
-                        closestTarget = currentTarget;
-                    }
-
-                }
-                else if (criteria == LockOnCriteria.Distance && onSight)
-                {
-                    if (distance < closestDistance)
-                    {
-                        closestDistance = distance;
-                        closestTarget = currentTarget;
-                    }
+                    //Debug.Log("This one does not have a lock point");
+                    continue;
                 }
 
+                Transform currentTarget = lockableObject.LockPoint();
+                //Debug.Log("Current target = " +  currentTarget);
 
-                /*Debug.Log("Angle = " + angle);
-                Debug.Log("Distance = " + distance);
-                Debug.Log("On sight = " + onSight);*/
+
+                Vector3 positionOnScreen = Camera.main.WorldToScreenPoint(currentTarget.position);
+
+                //bool onSight = positionOnScreen.z > 0f;
+                //bool onSight = TargetOnSight(currentTarget);
+                bool onSight = (TargetOnSight(currentTarget) && (positionOnScreen.z > 0));
+                if (!onSight) continue;
+
+                //Debug.Log("Targtet on sight");
+
+
+                float distance = Vector2.Distance(new Vector2(positionOnScreen.x, positionOnScreen.y), screenCenter);
+                
+
+                //Debug.Log("Position on the screen = " + positionOnScreen);
+                //Debug.Log("Screen center = " + screenCenter);
+                //Debug.Log("Distance to the center of the screen = " + distance);
+
+                if (distance < closestDistance)
+                {
+                    closestDistance = distance;
+                    closestTarget = currentTarget;
+                }
             }
 
+            //Check if we have a valid target and enable Lock-On
+            // No target
             if (closestTarget == null)
             {
                 isLockedOn = false;
                 lockTarget = null;
+                StartCoroutine(RecenterFollowCamera(recenterTime));
+                //RecenterFollowCamera();
                 return;
             }
+            // Target
             else
             {
-                //Debug.Log("The closest target is " + closestTarget);
-
-                CapsuleCollider targetCollider = closestTarget.GetComponent<CapsuleCollider>();
-                lockYOffset = (targetCollider.height * closestTarget.localScale.y) / 2;
-
-                /*Debug.Log("Height collider = " + targetCollider.height);
-                Debug.Log("Scale = " + closestTarget.localScale.y);
-                Debug.Log("Yoffset " + lockYOffset);*/
-
                 lockTarget = closestTarget;
                 isLockedOn = true;
                 reticle.enabled = true;
 
                 lockCamera.m_LookAt = lockTarget;
                 lockCamera.Priority = 11;
-                lockCamera.GetCinemachineComponent<CinemachineComposer>().m_TrackedObjectOffset.y = lockYOffset;
-
             }
-        }                
+        }
     }
 
 
@@ -263,7 +363,7 @@ public class LockOn : MonoBehaviour
     {
         Gizmos.DrawWireSphere(transform.position, scanDistance);
 
-        if(lockTarget != null) Gizmos.DrawLine(transform.position + Vector3.up * 0.5f, lockTarget.position + Vector3.up * lockYOffset);
+        if(lockTarget != null) Gizmos.DrawLine(transform.position + Vector3.up * 0.5f, lockTarget.position);
 
     }
 }
