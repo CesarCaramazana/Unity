@@ -18,6 +18,10 @@ public class GrappleHook : MonoBehaviour
     [SerializeField] private float maxDistance = 60f;
     [SerializeField] private float minDistance = 3f;
     [SerializeField] private float maxAngle = 30f;
+    [SerializeField] private float maxScreenDistanceFactor = 0.5f;
+    [SerializeField] private int maxColliders = 10;
+    private float maxScreenDistance;
+    private Vector2 screenCenter;
 
     [Space(5)]
     [SerializeField] private LayerMask grapplePointLayer;
@@ -61,6 +65,10 @@ public class GrappleHook : MonoBehaviour
 
         lineRenderer = GetComponent<LineRenderer>();
         lineRenderer.enabled = false;
+
+        screenCenter.x = Screen.width / 2;
+        screenCenter.y = Screen.height / 2;
+        maxScreenDistance = Screen.width * maxScreenDistanceFactor;
     }
 
     // Update is called once per frame
@@ -142,44 +150,71 @@ public class GrappleHook : MonoBehaviour
 
     private bool TargetOnSight(Transform target)
     {
-        //return !Physics.Linecast(transform.position + Vector3.up * 0.5f, target.position, ~grapplePointLayer);
-        return target.GetComponentInChildren<Renderer>().isVisible;
+        return !Physics.Linecast(transform.position + Vector3.up * 0.5f, target.position, ~grapplePointLayer);
+        //return target.GetComponentInChildren<Renderer>().isVisible;
         //return !Physics.Linecast(mainCamera.transform.position, target.position, ~grapplePointLayer);
     }
 
+
     private void Scan()
     {
-        // 1) Get all colliders in a sphere from player
-        Collider[] nearbyTargets = Physics.OverlapSphere(transform.position, maxDistance, grapplePointLayer); // OverlapSphereNonAlloc?
 
-        if (nearbyTargets.Length <= 0)
+        Collider[] hitColliders = new Collider[maxColliders];
+
+        int numNearbyTargets = Physics.OverlapSphereNonAlloc(transform.position, maxDistance, hitColliders, grapplePointLayer);
+
+        //Debug.Log("Number of near targets NonAlloc = " +  numNearbyTargets);
+        if (numNearbyTargets == 0)
         {
-            //Debug.Log("No targets in range");
-            return; //No targets in range
+            return;
         }
         else
         {
-            //Get the target closest to the center of the screen (min angle between camera.forward and target)
-            float closestAngle = maxAngle;
+            float closestDistance = maxScreenDistance;
             Transform closestTarget = null;
 
-            for (int i = 0; i < nearbyTargets.Length; i++)
+            for (int i = 0; i < numNearbyTargets; i++)
             {
-                Transform currentTarget = nearbyTargets[i].transform;
+                Transform currentTarget;                
 
-                bool onSight = TargetOnSight(currentTarget);
+                LockableObject lockableObject = hitColliders[i].GetComponent<LockableObject>();
+                if (lockableObject != null)
+                {
+                    currentTarget = lockableObject.LockPoint();
+                }
+                else
+                {
+                    currentTarget = hitColliders[i].gameObject.transform;
+
+                }                
+
+                //Debug.Log("Current target = " +  currentTarget);
+
+                Vector3 positionOnScreen = Camera.main.WorldToScreenPoint(currentTarget.position);
+
+                //bool onSight = positionOnScreen.z > 0f;
+                //bool onSight = TargetOnSight(currentTarget);
+                bool onSight = (TargetOnSight(currentTarget) && (positionOnScreen.z > 0));
+                //print("Is on sight: " + onSight);
                 if (!onSight) continue;
 
-                Vector3 cameraTargetDirection = currentTarget.position - mainCamera.position;
-                float angle = Vector3.Angle(mainCamera.forward, cameraTargetDirection);
+                //Debug.Log("Targtet on sight");
+                float distance = Vector2.Distance(new Vector2(positionOnScreen.x, positionOnScreen.y), screenCenter);
 
-                if (onSight && (angle < closestAngle))
+
+                //Debug.Log("Position on the screen = " + positionOnScreen);
+                //Debug.Log("Screen center = " + screenCenter);
+                //Debug.Log("Distance to the center of the screen = " + distance);
+
+                if (distance < closestDistance)
                 {
-                    closestAngle = angle;
+                    closestDistance = distance;
                     closestTarget = currentTarget;
                 }
             }
 
+
+            //Check if we have a valid target and enable grapple
             if (closestTarget == null)
             {
                 isGrappling = false;
@@ -192,11 +227,12 @@ public class GrappleHook : MonoBehaviour
                 grapplePoint = closestTarget;
                 lineRenderer.enabled = true;
                 lineRenderer.positionCount = 2;
-                //Debug.Log("Found point to grapple");
                 if (grappleSFX) grappleSFX.Play();
             }
         }
     }
+
+
 
     private void Aim()
     {
