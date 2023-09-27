@@ -17,4 +17,4 @@ I have made the destructible objects "living entities" (```LivingEntity.cs```), 
 
 To make the vanishing of the pieces smoother, the materials fade into black.
 
-![Example](https://github.com/CesarCaramazana/Unity/blob/main/General%20C%23%20Scripting/Destructible%20objects/Images/destructible_example.PNG)
+![Example](https://github.com/CesarCaramazana/Unity/blob/main/Objects/Destructible%20Objects/Images/destructible_example.PNG)
