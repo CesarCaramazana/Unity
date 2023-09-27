@@ -48,6 +48,9 @@ DISCLAIMER: I cannot promise all the scripts will be directly funcional. There m
 - Gamepad rumble
 - Input System: manager with C# class
 
+## Objects
+- Destructible objects
+- Trampoline platform
 
 ## Player controls
 ### Character controller
