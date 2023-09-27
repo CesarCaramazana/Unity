@@ -23,7 +23,7 @@ First, we cast a sphere with a certain radius from the player, that returns all 
 
 In ```Update()```, we check if the target remains at a certain distance and on sight, and unlock if it doesn't. We can apply a certain tolerance so that it does not unlock the target instantly, but after N seconds.
 
-Additionally, if the player moves the right stick to the left or right, a new scan is triggered to find a new target either left or right of the current one, respectively.
+Additionally, if the player moves the right stick to the left or right, a new scan is triggered to find a new target either left or right of the current one, respectively. To smooth the transition to the new target, it is useful to set a generous deadzone in the Cinemachine camera. This way, as the new target is probably going to be in the deadzone anyway (because else it would detect it), the camera will try to center to it smoothly. If no deadzone is set, the transition is a cut (very dizzy and confusing).
 
 ### Camera behavior
 
