@@ -18,11 +18,12 @@ The main problematiques that have to be addressed in a lock-on system are:
 ## Solution
 
 ### Target detection and selection
-First, we cast a sphere with a certain radius from the player, that returns all colliders with the enemy layer. Then, compute either 1) distance to the player or 2) angle with respect to the camera forward, aswell as a bool to determine if the potential target is on sight, that is, if the linecast between player/camera and target does not hit any obstacle.
+First, we cast a sphere with a certain radius from the player, that returns all colliders with the enemy layer and a Lockable component. Then, compute the distance to the center of the screen and check if the target is visible (linecast between player and target).
 
-Select the target with minimum distance/angle that is on sight. For this target, we calculate the half-height of the capsule collider so that we can apply an offset in the Y-axis (so that the target point is in the middle of the object).
 
 In ```Update()```, we check if the target remains at a certain distance and on sight, and unlock if it doesn't. We can apply a certain tolerance so that it does not unlock the target instantly, but after N seconds.
+
+Additionally, if the player moves the right stick to the left or right, a new scan is triggered to find a new target either left or right of the current one, respectively.
 
 ### Camera behavior
 
